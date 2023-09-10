@@ -4,6 +4,7 @@
 #include <ArduinoJson.h>
 #define EEPROM_SIZE 128
 #include "DHT.h"
+#include <ESPmDNS.h>
 
 #define DHTPIN 17
 #define DHTTYPE DHT11
@@ -158,7 +159,7 @@ void wifiTask() {
 
       Serial.print("wifiPassword : ");
       Serial.println(wifiPassword);
-
+      WiFi.mode(WIFI_STA);
       WiFi.begin(wifiName.c_str(), wifiPassword.c_str());
       Serial.print("Connecting to Wifi");
       while(WiFi.status() != WL_CONNECTED){
@@ -217,9 +218,52 @@ PubSubClient client(espClient);
 void callback(char* topic, byte* payload, unsigned int length) {
   // handle message arrived
 }
+void setup_dns() {
+  if(mdns_init()!= ESP_OK){
+    Serial.println("mDNS failed to start");
+    return;
+  }
+ 
+  int nrOfServices = MDNS.queryService("http", "tcp");
+   
+  if (nrOfServices == 0) {
+    Serial.println("No services were found.");
+  } 
+   
+  else {
+     
+    Serial.print("Number of services found: ");
+    Serial.println(nrOfServices);
+     
+    for (int i = 0; i < nrOfServices; i=i+1) {
+      if(MDNS.hostname(i)=="MacBook-Pro-de-Ilias"){
+        String mqttServ = MDNS.IP(i).toString();
+        mqttServ.toCharArray(server_mqtt, 32);
+        Serial.println("---------------");
+        Serial.println(server_mqtt);
+
+      }
+ 
+      Serial.println("---------------");
+       
+      Serial.print("Hostname: ");
+      Serial.println(MDNS.hostname(i));
+ 
+      Serial.print("IP address: ");
+      Serial.println(MDNS.IP(i));
+ 
+      Serial.print("Port: ");
+      Serial.println(MDNS.port(i));
+ 
+      Serial.println("---------------");
+    }
+  }
+ 
+}
 
 void reconnect() {
   // Loop until we're reconnected
+  setup_dns();
   while (!client.connected()) {
     Serial.println("mqtt_server :");
     Serial.print(mqtt_server);
@@ -246,7 +290,7 @@ void reconnect() {
 }
 
 void loop() {
-  delay(400)
+  delay(400);
   DynamicJsonDocument doc(1024);
   char payload[1024 + 2];
   // put your main code here, to run repeatedly:
@@ -259,7 +303,7 @@ void loop() {
     float h = dht.readHumidity();
     float t = dht.readTemperature();
     String humidity = String(h,3);
-    String temperature = String(h,3);
+    String temperature = String(t,3);
     doc["id"] = 123123123;
     doc["sensorType"] = "temperature";
     doc["temperature"] = temperature;
